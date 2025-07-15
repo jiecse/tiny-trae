@@ -2,6 +2,7 @@ package profile
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"tiny-trae/internal/agent"
@@ -33,6 +34,23 @@ func MinimalProfile() *agent.Profile {
 	}
 }
 
+// CloseaiProfile returns a profile configured for closeai with configurable model.
+func CloseaiProfile() *agent.Profile {
+	// Get model from environment variable, default to claude-sonnet-4-20250514
+	model := os.Getenv("CLOSEAI_MODEL")
+	if model == "" {
+		model = "claude-sonnet-4-20250514"
+	}
+	
+	return &agent.Profile{
+		Name:         "closeai",
+		Model:        anthropic.Model(model),
+		MaxTokens:    4096,
+		Tools:        tools.GetAllTools(),
+		SystemPrompt: prompt.GetSystemPrompt(),
+	}
+}
+
 // NewProfile creates a custom profile with the specified configuration.
 func NewProfile(name string, model anthropic.Model, maxTokens int64, tools []agent.ToolDefinition, systemPrompt string) *agent.Profile {
 	return &agent.Profile{
@@ -49,6 +67,7 @@ func GetAvailableProfiles() map[string]*agent.Profile {
 	return map[string]*agent.Profile{
 		"default": DefaultProfile(),
 		"minimal": MinimalProfile(),
+		"closeai": CloseaiProfile(),
 	}
 }
 
@@ -65,6 +84,12 @@ func ListProfiles() {
 			description = "General-purpose profile with all tools and standard prompt"
 		case "minimal":
 			description = "Lightweight profile with minimal tools for basic tasks"
+		case "closeai":
+			model := os.Getenv("CLOSEAI_MODEL")
+			if model == "" {
+				model = "claude-sonnet-4-20250514"
+			}
+			description = fmt.Sprintf("Profile optimized for closeai with %s model (configurable via CLOSEAI_MODEL)", model)
 		}
 
 		fmt.Printf("  %s:\n", name)

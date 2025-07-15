@@ -8,6 +8,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/invopop/jsonschema"
+	"tiny-trae/internal/trace"
 )
 
 // ToolDefinition struct defines a tool that the agent can use.
@@ -32,6 +33,7 @@ type Agent struct {
 	client   anthropic.Client
 	profile  *Profile
 	frontend Frontend
+	tracer   *trace.Tracer
 }
 
 // NewAgent creates a new Agent instance with a profile and frontend.
@@ -39,11 +41,13 @@ func NewAgent(
 	client anthropic.Client,
 	profile *Profile,
 	frontend Frontend,
+	tracer *trace.Tracer,
 ) *Agent {
 	return &Agent{
 		client:   client,
 		profile:  profile,
 		frontend: frontend,
+		tracer:   tracer,
 	}
 }
 
@@ -54,6 +58,7 @@ func NewAgentWithDefaults(
 	tools []ToolDefinition,
 	systemPrompt string,
 	frontend Frontend,
+	tracer *trace.Tracer,
 ) *Agent {
 	profile := &Profile{
 		Name:         "legacy",
@@ -62,7 +67,7 @@ func NewAgentWithDefaults(
 		Tools:        tools,
 		SystemPrompt: systemPrompt,
 	}
-	return NewAgent(client, profile, frontend)
+	return NewAgent(client, profile, frontend, tracer)
 }
 
 // NewClientWithOptions creates a new Anthropic client with the given options.
@@ -216,6 +221,24 @@ func (a *Agent) runInference(ctx context.Context, conversation []anthropic.Messa
 		Tools:     anthropicTools,
 		System:    []anthropic.TextBlockParam{{Text: a.profile.SystemPrompt}},
 	})
+
+	// Record trace if tracer is available
+	if a.tracer != nil {
+		traceErr := a.tracer.RecordInference(
+			ctx,
+			a.profile.Model,
+			a.profile.MaxTokens,
+			conversation,
+			anthropicTools,
+			a.profile.SystemPrompt,
+			message,
+			err,
+		)
+		if traceErr != nil {
+			// Log trace error but don't fail the main operation
+			fmt.Printf("Warning: Failed to record trace: %v\n", traceErr)
+		}
+	}
 
 	return message, err
 }

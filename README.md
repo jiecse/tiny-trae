@@ -71,6 +71,27 @@ This project is a simple AI coding agent implemented in Go. It uses the Anthropi
 
 ## Usage
 
+### Building the Project
+
+1. Clone the repository:
+    ```bash
+    git clone <repository-url>
+    cd tiny-trae
+    ```
+
+2. Build the project:
+    ```bash
+    go build -o tiny-trae
+    ```
+
+### Command Line Options
+
+- `--profile <name>`: Select a configuration profile (default, minimal, closeai)
+- `--list-profiles`: List all available profiles
+- `-p "<prompt>"`: Run in non-interactive mode with a single prompt
+- `--trace`: Enable tracing of model interactions
+- `--trace-dir <directory>`: Directory to store trace files (default: ./traces)
+
 ### Interactive Mode
 
 To run the agent in interactive mode, simply run the executable:
@@ -91,6 +112,31 @@ To run the agent in non-interactive mode, use the `-p` flag to provide a prompt:
 
 The agent will process the prompt and exit.
 
+### Examples
+
+```bash
+# Interactive mode with default profile
+./tiny-trae
+
+# Non-interactive mode
+./tiny-trae -p "Write a Python function to calculate fibonacci numbers"
+
+# Using closeai profile
+CLOSEAI_API_KEY=sk-your-key ./tiny-trae --profile closeai
+
+# Using custom model with closeai
+CLOSEAI_API_KEY=sk-your-key CLOSEAI_MODEL=claude-3-opus-20240229 ./tiny-trae --profile closeai
+
+# Enable tracing
+./tiny-trae --trace --profile default
+
+# Custom trace directory
+./tiny-trae --trace --trace-dir /path/to/traces
+
+# List available profiles
+./tiny-trae --list-profiles
+```
+
 ## Using with OpenRouter
 
 You can use this agent with [OpenRouter](https://openrouter.ai/) by using `anthropic-proxy`.
@@ -106,9 +152,96 @@ You can use this agent with [OpenRouter](https://openrouter.ai/) by using `anthr
     ANTHROPIC_BASE_URL=http://0.0.0.0:3000 ./tiny-trae
     ```
 
+## Using with CloseAI
+
+You can also use this agent with CloseAI, which provides access to Claude models through their API.
+
+1.  **Set your CloseAI API key:**
+    ```bash
+    export CLOSEAI_API_KEY=sk-your-closeai-api-key
+    ```
+
+2.  **Optionally configure the model (default: claude-sonnet-4-20250514):**
+    ```bash
+    export CLOSEAI_MODEL=claude-sonnet-4-20250514
+    # Or use other available models like:
+    # export CLOSEAI_MODEL=claude-3-opus-20240229
+    # export CLOSEAI_MODEL=claude-3-haiku-20240307
+    ```
+
+3.  **Run the agent with closeai profile:**
+    ```bash
+    ./tiny-trae --profile closeai
+    ```
+
+    Or with a direct prompt:
+    ```bash
+    CLOSEAI_API_KEY=sk-your-closeai-api-key ./tiny-trae --profile closeai -p "Your prompt here"
+    ```
+
+    With custom model:
+    ```bash
+    CLOSEAI_API_KEY=sk-your-closeai-api-key CLOSEAI_MODEL=claude-3-opus-20240229 ./tiny-trae --profile closeai
+    ```
+
+The closeai profile supports configurable models via the `CLOSEAI_MODEL` environment variable and is optimized for CloseAI's API endpoint.
+
 ## How it works
 
 The agent starts a conversation with the user. The user's message is sent to the Anthropic API, and the model can either respond with text or a request to use a tool. If it's a tool-use request, the agent executes the tool and sends the result back to the model. This loop continues until the user exits the program.
+
+## Trace Recording
+
+Tiny Trae supports detailed tracing of model interactions for debugging and analysis purposes.
+
+### Enabling Tracing
+
+Use the `--trace` flag to enable tracing:
+
+```bash
+./tiny-trae --trace
+```
+
+### Trace Output
+
+When tracing is enabled, each model interaction creates a timestamped subdirectory in the traces folder containing:
+
+- `request.json`: Complete API request data including messages, tools, and configuration
+- `response.json`: API response data including the model's output and token usage
+- `prompt.md`: Human-readable markdown representation of the entire interaction
+
+### Trace Directory Structure
+
+```
+traces/
+├── 20240115-143022-000000/
+│   ├── request.json
+│   ├── response.json
+│   └── prompt.md
+├── 20240115-143045-000000/
+│   ├── request.json
+│   ├── response.json
+│   └── prompt.md
+└── ...
+```
+
+### Custom Trace Directory
+
+Specify a custom directory for traces:
+
+```bash
+./tiny-trae --trace --trace-dir /path/to/custom/traces
+```
+
+## Available Tools
+
+The agent comes with several built-in tools:
+
+1. **bash**: Execute shell commands
+2. **read_file**: Read file contents
+3. **edit_file**: Edit files with search and replace
+4. **list_files**: List directory contents with filtering
+5. **ripgrep**: Search for patterns across files
 
 ## Tools
 

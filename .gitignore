@@ -32,3 +32,6 @@ tiny-trae
 
 # Claude trace logs
 .claude-trace/
+
+# Trace files
+traces/
