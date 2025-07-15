@@ -102,6 +102,15 @@ To run the agent in interactive mode, simply run the executable:
 
 The agent will prompt you for input.
 
+#### Navigation in Interactive Mode
+
+- **Type messages**: Use the input box at the bottom to type your messages
+- **Send messages**: Press `Enter` to send your message
+- **Scroll up/down**: Use `↑`/`↓` arrow keys or `k`/`j` (vim-style) to scroll through message history
+- **Page navigation**: Use `Page Up` and `Page Down` for faster scrolling
+- **Jump to top/bottom**: Use `Home` to go to the beginning, `End` to go to the latest messages
+- **Quit**: Press `q` or `Ctrl+C` to exit
+
 ### Non-interactive Mode
 
 To run the agent in non-interactive mode, use the `-p` flag to provide a prompt:

@@ -229,6 +229,24 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(cmds...)
 			case "ctrl+c":
 				os.Exit(0)
+			case "up", "k":
+				// Scroll up
+				m.viewport.ScrollUp(1)
+			case "down", "j":
+				// Scroll down
+				m.viewport.ScrollDown(1)
+			case "pgup":
+				// Page up
+				m.viewport.ScrollUp(m.viewport.Height / 2)
+			case "pgdown":
+				// Page down
+				m.viewport.ScrollDown(m.viewport.Height / 2)
+			case "home":
+				// Go to top
+				m.viewport.GotoTop()
+			case "end":
+				// Go to bottom
+				m.viewport.GotoBottom()
 			}
 			m.textInput, cmd = m.textInput.Update(msg)
 			cmds = append(cmds, cmd)
@@ -238,11 +256,33 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				os.Exit(0)
 			case "q":
 				return m, tea.Quit
+			case "up", "k":
+				// Scroll up
+				m.viewport.ScrollUp(1)
+			case "down", "j":
+				// Scroll down
+				m.viewport.ScrollDown(1)
+			case "pgup":
+				// Page up
+				m.viewport.ScrollUp(m.viewport.Height / 2)
+			case "pgdown":
+				// Page down
+				m.viewport.ScrollDown(m.viewport.Height / 2)
+			case "home":
+				// Go to top
+				m.viewport.GotoTop()
+			case "end":
+				// Go to bottom
+				m.viewport.GotoBottom()
 			}
 		}
 
 	case messageReceivedMsg:
 		m.addMessage(msg.msg)
+		// Update viewport content and auto-scroll to bottom for new messages
+		m.viewport.SetContent(strings.Join(m.messages, "\n"))
+		m.viewport.GotoBottom()
+		
 		if msg.msg.Type == agent.MessageTypeToolCall {
 			m.processingTool = true
 			var toolData agent.ToolCallData
@@ -276,7 +316,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Update viewport
+	// Only update viewport content without auto-scrolling (except for new messages)
 	m.viewport.SetContent(strings.Join(m.messages, "\n"))
 
 	return m, tea.Batch(cmds...)
