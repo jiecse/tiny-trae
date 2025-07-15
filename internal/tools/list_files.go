@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-
-	"tiny-trae/internal/agent"
 )
 
 // ListFilesDefinition defines the 'list_files' tool.
-var ListFilesDefinition = agent.ToolDefinition{
+var ListFilesDefinition = ToolDefinition{
 	Name:        "list_files",
 	Description: "List files and directories at a given path. If no path is provided, lists files in the current directory.",
 	InputSchema: ListFilesInputSchema,
@@ -22,7 +20,7 @@ type ListFilesInput struct {
 }
 
 // ListFilesInputSchema is the JSON schema for the 'list_files' tool's input.
-var ListFilesInputSchema = agent.GenerateSchema[ListFilesInput]()
+var ListFilesInputSchema = GenerateSchema[ListFilesInput]()
 
 // ListFiles implements the 'list_files' tool.
 func ListFiles(input json.RawMessage) (string, error) {

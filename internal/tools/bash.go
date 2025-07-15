@@ -5,11 +5,36 @@ import (
 	"fmt"
 	"os/exec"
 
-	"tiny-trae/internal/agent"
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/invopop/jsonschema"
 )
 
+// ToolDefinition represents a tool that can be used by agents
+type ToolDefinition struct {
+	Name        string                         `json:"name"`
+	Description string                         `json:"description"`
+	InputSchema anthropic.ToolInputSchemaParam `json:"input_schema"`
+	Function    func(input json.RawMessage) (string, error)
+}
+
+// GenerateSchema generates a JSON schema for a given type.
+func GenerateSchema[T any]() anthropic.ToolInputSchemaParam {
+	reflector := jsonschema.Reflector{
+		AllowAdditionalProperties: false,
+		DoNotReference:            true,
+	}
+
+	var v T
+	schema := reflector.Reflect(v)
+
+	return anthropic.ToolInputSchemaParam{
+		Type:       "object",
+		Properties: schema.Properties,
+	}
+}
+
 // BashDefinition defines the 'bash' tool.
-var BashDefinition = agent.ToolDefinition{
+var BashDefinition = ToolDefinition{
 	Name:        "bash",
 	Description: "Execute a bash command.",
 	InputSchema: BashInputSchema,
@@ -22,7 +47,7 @@ type BashInput struct {
 }
 
 // BashInputSchema is the JSON schema for the 'bash' tool's input.
-var BashInputSchema = agent.GenerateSchema[BashInput]()
+var BashInputSchema = GenerateSchema[BashInput]()
 
 // Bash implements the 'bash' tool.
 func Bash(input json.RawMessage) (string, error) {

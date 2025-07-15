@@ -6,12 +6,10 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"tiny-trae/internal/agent"
 )
 
 // EditFileDefinition defines the 'edit_file' tool.
-var EditFileDefinition = agent.ToolDefinition{
+var EditFileDefinition = ToolDefinition{
 	Name:        "edit_file",
 	Description: `Make edits to a text file. Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str' MUST be different from each other. If the file specified with path doesn't exist, it will be created.`,
 	InputSchema: EditFileInputSchema,
@@ -26,7 +24,7 @@ type EditFileInput struct {
 }
 
 // EditFileInputSchema is the JSON schema for the 'edit_file' tool's input.
-var EditFileInputSchema = agent.GenerateSchema[EditFileInput]()
+var EditFileInputSchema = GenerateSchema[EditFileInput]()
 
 // EditFile implements the 'edit_file' tool.
 func EditFile(input json.RawMessage) (string, error) {

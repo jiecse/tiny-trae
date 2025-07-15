@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"tiny-trae/internal/subagent"
+	"tiny-trae/internal/tools"
+	"tiny-trae/internal/trace"
+
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/invopop/jsonschema"
-	"tiny-trae/internal/trace"
 )
 
 // ToolDefinition struct defines a tool that the agent can use.
@@ -30,10 +33,11 @@ type Profile struct {
 
 // Agent struct represents the core of the AI agent.
 type Agent struct {
-	client   anthropic.Client
-	profile  *Profile
-	frontend Frontend
-	tracer   *trace.Tracer
+	client    anthropic.Client
+	profile   *Profile
+	frontend  Frontend
+	tracer    *trace.Tracer
+	subAgents map[string]subagent.SubAgent
 }
 
 // NewAgent creates a new Agent instance with a profile and frontend.
@@ -43,12 +47,18 @@ func NewAgent(
 	frontend Frontend,
 	tracer *trace.Tracer,
 ) *Agent {
-	return &Agent{
-		client:   client,
-		profile:  profile,
-		frontend: frontend,
-		tracer:   tracer,
+	agent := &Agent{
+		client:    client,
+		profile:   profile,
+		frontend:  frontend,
+		tracer:    tracer,
+		subAgents: make(map[string]subagent.SubAgent),
 	}
+
+	// Initialize sub-agents
+	agent.InitializeSubAgents()
+
+	return agent
 }
 
 // NewAgentWithDefaults creates a new Agent instance with individual parameters (legacy).
@@ -67,7 +77,12 @@ func NewAgentWithDefaults(
 		Tools:        tools,
 		SystemPrompt: systemPrompt,
 	}
-	return NewAgent(client, profile, frontend, tracer)
+	agent := NewAgent(client, profile, frontend, tracer)
+
+	// Initialize sub-agents
+	agent.InitializeSubAgents()
+
+	return agent
 }
 
 // NewClientWithOptions creates a new Anthropic client with the given options.
@@ -146,7 +161,7 @@ func (a *Agent) runCore(ctx context.Context, initialMessage string) error {
 				Type:    MessageTypeError,
 				Content: fmt.Sprintf("LLM request failed: %v", err),
 			})
-			
+
 			// In interactive mode, continue the loop to allow user to try again
 			if a.frontend.IsInteractive() {
 				readUserInput = true
@@ -157,7 +172,6 @@ func (a *Agent) runCore(ctx context.Context, initialMessage string) error {
 			}
 		}
 		conversation = append(conversation, message.ToParam())
-
 
 		toolResults := []anthropic.ContentBlockParamUnion{}
 		for _, content := range message.Content {
@@ -189,7 +203,7 @@ func (a *Agent) runCore(ctx context.Context, initialMessage string) error {
 
 		// After tool execution, add tool results to conversation and continue inference
 		conversation = append(conversation, anthropic.NewUserMessage(toolResults...))
-		
+
 		// Continue the inference loop to get model's response to tool results
 		// Don't read user input in the next iteration, let the model respond to tool results first
 		readUserInput = false
@@ -197,6 +211,187 @@ func (a *Agent) runCore(ctx context.Context, initialMessage string) error {
 	}
 
 	return nil
+}
+
+// InitializeSubAgents initializes all sub-agents
+func (a *Agent) InitializeSubAgents() {
+	// Initialize codebase search agent
+	codebaseSearchAgent := subagent.NewCodebaseSearchAgent(a.client)
+	a.subAgents[codebaseSearchAgent.GetName()] = codebaseSearchAgent
+}
+
+// GetSubAgent returns a sub-agent by name
+func (a *Agent) GetSubAgent(name string) (subagent.SubAgent, bool) {
+	subAgent, exists := a.subAgents[name]
+	return subAgent, exists
+}
+
+// ListSubAgents returns all available sub-agents
+func (a *Agent) ListSubAgents() map[string]subagent.SubAgent {
+	return a.subAgents
+}
+
+// executeSubAgentTool executes a sub-agent tool call
+func (a *Agent) executeSubAgentTool(id, name string, input json.RawMessage) anthropic.ContentBlockParamUnion {
+	// Find the sub-agent
+	subAgent, exists := a.subAgents[name]
+	if !exists {
+		errorMsg := fmt.Sprintf("sub-agent '%s' not found", name)
+		// Send tool result message to frontend
+		toolResultData := ToolResultData{
+			ToolName: name,
+			ToolID:   id,
+			Result:   errorMsg,
+			IsError:  true,
+		}
+		data, err := json.Marshal(toolResultData)
+		if err != nil {
+			a.frontend.SendMessage(Message{
+				Type:    MessageTypeToolResult,
+				Content: errorMsg,
+			})
+		} else {
+			a.frontend.SendMessage(Message{
+				Type:    MessageTypeToolResult,
+				Content: "",
+				Data:    data,
+			})
+		}
+		return anthropic.NewToolResultBlock(id, errorMsg, true)
+	}
+
+	// Parse the input based on the sub-agent type
+	var request subagent.SubAgentRequest
+	if name == "codebase_search" {
+		var searchRequest subagent.CodebaseSearchRequest
+		if err := json.Unmarshal(input, &searchRequest); err != nil {
+			errorMsg := fmt.Sprintf("failed to parse input: %v", err)
+			toolResultData := ToolResultData{
+				ToolName: name,
+				ToolID:   id,
+				Result:   errorMsg,
+				IsError:  true,
+			}
+			data, marshalErr := json.Marshal(toolResultData)
+			if marshalErr != nil {
+				a.frontend.SendMessage(Message{
+					Type:    MessageTypeToolResult,
+					Content: errorMsg,
+				})
+			} else {
+				a.frontend.SendMessage(Message{
+					Type:    MessageTypeToolResult,
+					Content: "",
+					Data:    data,
+				})
+			}
+			return anthropic.NewToolResultBlock(id, errorMsg, true)
+		}
+		request = subagent.SubAgentRequest{
+			Task:    fmt.Sprintf("Search for: %s (type: %s)", searchRequest.Query, searchRequest.SearchType),
+			Context: searchRequest.Context,
+			Parameters: map[string]interface{}{
+				"query":       searchRequest.Query,
+				"search_type": searchRequest.SearchType,
+				"directory":   searchRequest.Directory,
+				"file_types":  searchRequest.FileTypes,
+				"max_results": searchRequest.MaxResults,
+				"parameters":  searchRequest.Parameters,
+			},
+		}
+	} else {
+		errorMsg := fmt.Sprintf("unknown sub-agent type: %s", name)
+		toolResultData := ToolResultData{
+			ToolName: name,
+			ToolID:   id,
+			Result:   errorMsg,
+			IsError:  true,
+		}
+		data, err := json.Marshal(toolResultData)
+		if err != nil {
+			a.frontend.SendMessage(Message{
+				Type:    MessageTypeToolResult,
+				Content: errorMsg,
+			})
+		} else {
+			a.frontend.SendMessage(Message{
+				Type:    MessageTypeToolResult,
+				Content: "",
+				Data:    data,
+			})
+		}
+		return anthropic.NewToolResultBlock(id, errorMsg, true)
+	}
+
+	// Send tool call message to frontend
+	toolCallData := ToolCallData{
+		ToolName: name,
+		ToolID:   id,
+		Input:    input,
+	}
+	data, err := json.Marshal(toolCallData)
+	if err != nil {
+		a.frontend.SendMessage(Message{
+			Type:    MessageTypeToolCall,
+			Content: fmt.Sprintf("Executing sub-agent: %s", name),
+		})
+	} else {
+		a.frontend.SendMessage(Message{
+			Type:    MessageTypeToolCall,
+			Content: fmt.Sprintf("Executing sub-agent: %s", name),
+			Data:    data,
+		})
+	}
+
+	// Execute the sub-agent
+	ctx := context.Background()
+	response, err := subAgent.Execute(ctx, request)
+	if err != nil {
+		errorMsg := fmt.Sprintf("sub-agent execution failed: %v", err)
+		toolResultData := ToolResultData{
+			ToolName: name,
+			ToolID:   id,
+			Result:   errorMsg,
+			IsError:  true,
+		}
+		data, marshalErr := json.Marshal(toolResultData)
+		if marshalErr != nil {
+			a.frontend.SendMessage(Message{
+				Type:    MessageTypeToolResult,
+				Content: errorMsg,
+			})
+		} else {
+			a.frontend.SendMessage(Message{
+				Type:    MessageTypeToolResult,
+				Content: "",
+				Data:    data,
+			})
+		}
+		return anthropic.NewToolResultBlock(id, errorMsg, true)
+	}
+
+	// Send successful result to frontend
+	toolResultData := ToolResultData{
+		ToolName: name,
+		ToolID:   id,
+		Result:   response.Result,
+		IsError:  false,
+	}
+	data, err = json.Marshal(toolResultData)
+	if err != nil {
+		a.frontend.SendMessage(Message{
+			Type:    MessageTypeToolResult,
+			Content: response.Result,
+		})
+	} else {
+		a.frontend.SendMessage(Message{
+			Type:    MessageTypeToolResult,
+			Content: response.Result,
+			Data:    data,
+		})
+	}
+
+	return anthropic.NewToolResultBlock(id, response.Result, false)
 }
 
 // runInference sends the conversation to the Anthropic API and gets the model's response.
@@ -248,6 +443,11 @@ func (a *Agent) runInference(ctx context.Context, conversation []anthropic.Messa
 // and returns the result as a tool result block. If the tool is not found or an error occurs
 // during execution, it returns an error message in the tool result block.
 func (a *Agent) executeTool(id, name string, input json.RawMessage) anthropic.ContentBlockParamUnion {
+	// Check if this is a sub-agent tool call
+	if name == "codebase_search" {
+		return a.executeSubAgentTool(id, name, input)
+	}
+
 	var toolDef ToolDefinition
 	var found bool
 	for _, tool := range a.profile.Tools {
@@ -352,4 +552,18 @@ func GenerateSchema[T any]() anthropic.ToolInputSchemaParam {
 		Type:       "object",
 		Properties: schema.Properties,
 	}
+}
+
+// ConvertToolsToAgentTools converts tools.ToolDefinition slice to agent.ToolDefinition slice
+func ConvertToolsToAgentTools(toolsDefinitions []tools.ToolDefinition) []ToolDefinition {
+	agentTools := make([]ToolDefinition, len(toolsDefinitions))
+	for i, tool := range toolsDefinitions {
+		agentTools[i] = ToolDefinition{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: tool.InputSchema,
+			Function:    tool.Function,
+		}
+	}
+	return agentTools
 }

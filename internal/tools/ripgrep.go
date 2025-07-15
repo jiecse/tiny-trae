@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-
-	"tiny-trae/internal/agent"
 )
 
 // RipgrepDefinition defines the 'ripgrep' tool.
-var RipgrepDefinition = agent.ToolDefinition{
+var RipgrepDefinition = ToolDefinition{
 	Name: "ripgrep",
 	Description: `Search for exact text patterns in files using ripgrep, a fast keyword search tool.
 
@@ -39,7 +37,7 @@ type RipgrepInput struct {
 }
 
 // RipgrepInputSchema is the JSON schema for the 'ripgrep' tool's input.
-var RipgrepInputSchema = agent.GenerateSchema[RipgrepInput]()
+var RipgrepInputSchema = GenerateSchema[RipgrepInput]()
 
 // Ripgrep implements the 'ripgrep' tool.
 func Ripgrep(input json.RawMessage) (string, error) {

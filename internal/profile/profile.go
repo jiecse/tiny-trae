@@ -18,7 +18,7 @@ func DefaultProfile() *agent.Profile {
 		Name:         "default",
 		Model:        anthropic.ModelClaudeSonnet4_0,
 		MaxTokens:    1024,
-		Tools:        tools.GetAllTools(),
+		Tools:        agent.ConvertToolsToAgentTools(tools.GetAllTools()),
 		SystemPrompt: prompt.GetSystemPrompt(),
 	}
 }
@@ -29,7 +29,7 @@ func MinimalProfile() *agent.Profile {
 		Name:         "minimal",
 		Model:        anthropic.ModelClaudeSonnet4_0,
 		MaxTokens:    1024,
-		Tools:        tools.GetMinimalTools(),
+		Tools:        agent.ConvertToolsToAgentTools(tools.GetMinimalTools()),
 		SystemPrompt: prompt.GetMinimalSystemPrompt(),
 	}
 }
@@ -46,7 +46,7 @@ func CloseaiProfile() *agent.Profile {
 		Name:         "closeai",
 		Model:        anthropic.Model(model),
 		MaxTokens:    4096,
-		Tools:        tools.GetAllTools(),
+		Tools:        agent.ConvertToolsToAgentTools(tools.GetAllTools()),
 		SystemPrompt: prompt.GetSystemPrompt(),
 	}
 }

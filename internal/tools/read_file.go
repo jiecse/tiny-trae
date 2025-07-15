@@ -3,12 +3,10 @@ package tools
 import (
 	"encoding/json"
 	"os"
-
-	"tiny-trae/internal/agent"
 )
 
 // ReadFileDefinition defines the 'read_file' tool.
-var ReadFileDefinition = agent.ToolDefinition{
+var ReadFileDefinition = ToolDefinition{
 	Name:        "read_file",
 	Description: "Read the contents of a given relative file path. Use this when you want to see what's inside a file. Do not use this with directory names.",
 	InputSchema: ReadFileInputSchema,
@@ -21,7 +19,7 @@ type ReadFileInput struct {
 }
 
 // ReadFileInputSchema is the JSON schema for the 'read_file' tool's input.
-var ReadFileInputSchema = agent.GenerateSchema[ReadFileInput]()
+var ReadFileInputSchema = GenerateSchema[ReadFileInput]()
 
 // ReadFile implements the 'read_file' tool.
 func ReadFile(input json.RawMessage) (string, error) {
