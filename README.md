@@ -27,13 +27,17 @@ This project is a simple AI coding agent implemented in Go. It uses the Anthropi
 
 - **Interactive Chat:** Chat with the agent from your terminal.
 - **Non-interactive mode:** Provide input directly from the command line.
+- **Sub-Agent System:** Specialized agents for complex tasks like intelligent code search.
 - **Tool Execution:** The agent can execute the following tools:
     - `read_file`: Read the contents of a file.
     - `list_files`: List files and directories.
     - `edit_file`: Modify files by searching and replacing text.
     - `ripgrep`: Search for text patterns within files.
     - `bash`: Execute shell commands.
-- **Extensible:** Easily add new tools to the agent.
+    - `codebase_search`: Intelligent code search and discovery using specialized sub-agent.
+- **Complete Tracing:** Full tracing support for both main agent and sub-agent interactions.
+- **Robust Error Handling:** Smart iteration limits with graceful fallback mechanisms.
+- **Extensible:** Easily add new tools and sub-agents to the system.
 
 ## Prerequisites
 
@@ -199,6 +203,32 @@ The closeai profile supports configurable models via the `CLOSEAI_MODEL` environ
 
 The agent starts a conversation with the user. The user's message is sent to the Anthropic API, and the model can either respond with text or a request to use a tool. If it's a tool-use request, the agent executes the tool and sends the result back to the model. This loop continues until the user exits the program.
 
+### Sub-Agent System
+
+Tiny Trae features a sophisticated sub-agent system for handling complex, specialized tasks:
+
+#### Codebase Search Agent
+
+The `codebase_search` tool is powered by a specialized sub-agent that provides intelligent code discovery:
+
+- **Multi-step Analysis**: Performs comprehensive code exploration using multiple search strategies
+- **Tool Integration**: Uses `list_files`, `ripgrep`, and `read_file` tools in combination
+- **Contextual Search**: Goes beyond simple keyword matching to understand code relationships
+- **Smart Iteration**: Handles complex queries with up to 10 rounds of analysis
+- **Graceful Fallback**: Provides partial results even when reaching iteration limits
+
+**Example Usage:**
+```bash
+./tiny-trae -p "Use codebase_search to find authentication-related code"
+```
+
+#### Sub-Agent Features
+
+- **Complete TUI Integration**: Sub-agent operations are fully visible in the terminal interface
+- **Comprehensive Tracing**: All sub-agent LLM calls are recorded in separate trace files
+- **Robust Error Handling**: Smart fallback mechanisms ensure useful results even with complex queries
+- **Extensible Architecture**: Easy to add new specialized sub-agents for different domains
+
 ## Trace Recording
 
 Tiny Trae supports detailed tracing of model interactions for debugging and analysis purposes.
@@ -218,6 +248,16 @@ When tracing is enabled, each model interaction creates a timestamped subdirecto
 - `request.json`: Complete API request data including messages, tools, and configuration
 - `response.json`: API response data including the model's output and token usage
 - `prompt.md`: Human-readable markdown representation of the entire interaction
+
+#### Sub-Agent Tracing
+
+Sub-agents generate their own separate trace files for each internal LLM interaction:
+
+- **Main Agent Traces**: Show high-level tool calls to sub-agents (e.g., `codebase_search`)
+- **Sub-Agent Traces**: Show detailed internal operations of each sub-agent
+- **Complete Visibility**: Every LLM call, whether from main agent or sub-agent, is fully traced
+
+This provides complete transparency into the multi-layered AI decision-making process.
 
 ### Trace Directory Structure
 
@@ -246,20 +286,51 @@ Specify a custom directory for traces:
 
 The agent comes with several built-in tools:
 
-1. **bash**: Execute shell commands
-2. **read_file**: Read file contents
-3. **edit_file**: Edit files with search and replace
-4. **list_files**: List directory contents with filtering
-5. **ripgrep**: Search for patterns across files
+### Core Tools
 
-## Tools
+1. **`bash`**: Execute shell commands
+   - Run any shell command and get the output
+   - Useful for system operations, file management, and running scripts
 
-The agent currently supports the following tools:
+2. **`read_file`**: Read file contents
+   - Read the entire content of a specified file
+   - Supports various file formats and encodings
 
--   **`read_file`**: Reads the entire content of a specified file.
--   **`list_files`**: Lists all files and directories within a given path.
--   **`edit_file`**: Edits a file by replacing a specified string with a new one.
--   **`ripgrep`**: Searches for a pattern in files using `rg`.
--   **`bash`**: Executes a given command in a bash shell.
+3. **`edit_file`**: Edit files with search and replace
+   - Modify files by replacing specific text patterns
+   - Precise text replacement with exact matching
 
-You can extend the agent by adding new `ToolDefinition` structs and including them in the `tools` slice in the `main` function.
+4. **`list_files`**: List directory contents
+   - List all files and directories within a given path
+   - Recursive directory traversal with filtering options
+
+5. **`ripgrep`**: Search for patterns across files
+   - Fast text search using regular expressions
+   - Search across multiple files and directories
+   - **Requirement**: Must have `ripgrep` installed (`brew install ripgrep` on macOS)
+
+### Advanced Tools
+
+6. **`codebase_search`**: Intelligent code search and discovery
+   - **Powered by specialized sub-agent**: Uses AI to understand code context and relationships
+   - **Multi-strategy search**: Combines file listing, pattern matching, and content analysis
+   - **Conceptual understanding**: Goes beyond keyword matching to find functionally related code
+   - **Smart iteration**: Performs up to 10 rounds of analysis for complex queries
+   - **Graceful degradation**: Provides partial results even for complex or incomplete searches
+
+### Tool Extensibility
+
+You can extend the agent by:
+- Adding new `ToolDefinition` structs in the `internal/tools` package
+- Implementing the tool function with proper input/output handling
+- Registering the tool in the appropriate profile configuration
+- For complex tools, consider implementing them as sub-agents for better modularity
+
+### Sub-Agent Architecture
+
+The `codebase_search` tool demonstrates the sub-agent pattern:
+- **Specialized Intelligence**: Dedicated AI agent for specific domain tasks
+- **Tool Composition**: Sub-agents can use multiple core tools in combination
+- **Independent Tracing**: Each sub-agent interaction is fully traced
+- **TUI Integration**: Sub-agent operations are visible in the terminal interface
+- **Robust Error Handling**: Smart fallback mechanisms ensure reliable operation
