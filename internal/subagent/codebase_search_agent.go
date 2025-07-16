@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"tiny-trae/internal/tools"
+	"tiny-trae/internal/trace"
 
 	"github.com/anthropics/anthropic-sdk-go"
 )
@@ -15,7 +16,7 @@ type CodebaseSearchAgent struct {
 }
 
 // NewCodebaseSearchAgent creates a new codebase search agent
-func NewCodebaseSearchAgent(client anthropic.Client) *CodebaseSearchAgent {
+func NewCodebaseSearchAgent(client anthropic.Client, tracer *trace.Tracer, frontend Frontend) *CodebaseSearchAgent {
 	// Define tools available to this sub-agent
 	subAgentTools := []ToolDefinition{
 		{
@@ -43,6 +44,8 @@ func NewCodebaseSearchAgent(client anthropic.Client) *CodebaseSearchAgent {
 		subAgentTools,
 		"codebase_search",
 		"Intelligent code search and discovery agent that can find code based on functionality and concepts",
+		tracer,
+		frontend,
 	)
 
 	return &CodebaseSearchAgent{

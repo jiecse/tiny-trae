@@ -213,10 +213,28 @@ func (a *Agent) runCore(ctx context.Context, initialMessage string) error {
 	return nil
 }
 
+// frontendAdapter adapts the agent.Frontend interface to subagent.Frontend interface
+type frontendAdapter struct {
+	frontend Frontend
+}
+
+func (f *frontendAdapter) SendMessage(msg subagent.Message) {
+	// Convert subagent.Message to agent.Message
+	agentMsg := Message{
+		Type:    MessageType(msg.Type), // Convert message type
+		Content: msg.Content,
+		Data:    msg.Data,
+	}
+	f.frontend.SendMessage(agentMsg)
+}
+
 // InitializeSubAgents initializes all sub-agents
 func (a *Agent) InitializeSubAgents() {
+	// Create frontend adapter
+	adapter := &frontendAdapter{frontend: a.frontend}
+
 	// Initialize codebase search agent
-	codebaseSearchAgent := subagent.NewCodebaseSearchAgent(a.client)
+	codebaseSearchAgent := subagent.NewCodebaseSearchAgent(a.client, a.tracer, adapter)
 	a.subAgents[codebaseSearchAgent.GetName()] = codebaseSearchAgent
 }
 
